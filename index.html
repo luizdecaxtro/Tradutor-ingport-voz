@@ -1,0 +1,146 @@
+<!DOCTYPE html>
+<html lang="pt-br">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Tradutor por Voz | Lojas de Castro</title>
+    <style>
+        :root { --primary: #1a73e8; --success: #34a853; --mic: #ea4335; }
+        body { font-family: 'Segoe UI', Arial, sans-serif; background: #f0f2f5; margin: 0; padding: 20px; display: flex; flex-direction: column; align-items: center; }
+        
+        .btn-voltar { align-self: flex-start; text-decoration: none; color: var(--primary); font-weight: bold; border: 2px solid var(--primary); padding: 8px 15px; border-radius: 6px; margin-bottom: 20px; transition: 0.3s; }
+        .btn-voltar:hover { background: var(--primary); color: white; }
+
+        .card { background: white; padding: 25px; border-radius: 12px; box-shadow: 0 4px 15px rgba(0,0,0,0.1); width: 100%; max-width: 600px; }
+        h2 { text-align: center; color: #333; margin-top: 0; margin-bottom: 5px; }
+        h4 { text-align: center; color: #666; margin-bottom: 20px; font-weight: normal; }
+        
+        select, textarea { width: 100%; padding: 12px; margin: 10px 0; border: 1px solid #ddd; border-radius: 8px; font-size: 16px; box-sizing: border-box; }
+        textarea { height: 120px; resize: none; }
+
+        .controles-voz { display: flex; gap: 10px; margin-bottom: 10px; }
+        
+        .btn-acao { width: 100%; padding: 15px; border: none; border-radius: 8px; font-size: 16px; font-weight: bold; cursor: pointer; color: white; margin-top: 10px; transition: opacity 0.2s; }
+        .btn-acao:active { opacity: 0.8; }
+        
+        .btn-traduzir { background: var(--primary); }
+        .btn-ouvir { background: var(--success); display: none; }
+        .btn-mic { background: var(--mic); flex: 1; display: flex; align-items: center; justify-content: center; gap: 8px; }
+        
+        .listening { animation: pulse 1.5s infinite; background: #b21f11 !important; }
+        @keyframes pulse { 0% { opacity: 1; } 50% { opacity: 0.5; } 100% { opacity: 1; } }
+
+        #resultado-box { background: #f8f9fa; padding: 15px; border-radius: 8px; border-left: 5px solid var(--primary); margin-top: 20px; min-height: 50px; }
+        .loading { color: #666; font-style: italic; }
+    </style>
+</head>
+<body>
+
+    <a href="https://www.lojasdecastro.com.br" class="btn-voltar">← Voltar</a>
+
+    <div class="card">
+        <h2>Tradutor Lojas de Castro</h2>
+        <h4>Voz e Texto</h4>
+
+        <select id="langPair">
+            <option value="pt|en">Português ➔ Inglês</option>
+            <option value="en|pt">Inglês ➔ Português</option>
+        </select>
+
+        <div style="position: relative;">
+            <textarea id="inputText" placeholder="Digite ou use o microfone..."></textarea>
+        </div>
+
+        <div class="controles-voz">
+            <button id="btnEscutar" class="btn-acao btn-mic" onclick="ouvirUsuario()">
+                <span id="micIcon">🎙️</span> <span id="micTexto">Falar Frase</span>
+            </button>
+        </div>
+        
+        <button class="btn-acao btn-traduzir" onclick="realizarTraducao()">Traduzir Agora</button>
+
+        <div id="resultado-box">
+            <div id="outputText">A tradução aparecerá aqui...</div>
+        </div>
+        
+        <button id="btnVoz" class="btn-acao btn-ouvir" onclick="falar()">🔊 Ouvir Tradução</button>
+    </div>
+
+    <script>
+        // Configuração do Reconhecimento de Voz
+        const Recognition = window.SpeechRecognition || window.webkitSpeechRecognition;
+        let recognition = null;
+
+        if (Recognition) {
+            recognition = new Recognition();
+            recognition.continuous = false;
+            recognition.interimResults = false;
+
+            recognition.onstart = () => {
+                document.getElementById('btnEscutar').classList.add('listening');
+                document.getElementById('micTexto').innerText = "Ouvindo...";
+            };
+
+            recognition.onend = () => {
+                document.getElementById('btnEscutar').classList.remove('listening');
+                document.getElementById('micTexto').innerText = "Falar Frase";
+            };
+
+            recognition.onresult = (event) => {
+                const transcript = event.results[0][0].transcript;
+                document.getElementById('inputText').value = transcript;
+                realizarTraducao(); // Traduz automaticamente após ouvir
+            };
+
+            recognition.onerror = (event) => {
+                console.error("Erro no microfone: ", event.error);
+                alert("Erro ao acessar microfone. Verifique as permissões.");
+            };
+        } else {
+            document.getElementById('btnEscutar').style.display = "none";
+            console.warn("Navegador não suporta reconhecimento de voz.");
+        }
+
+        function ouvirUsuario() {
+            if (!recognition) return;
+            const par = document.getElementById('langPair').value.split('|');
+            recognition.lang = par[0] === 'pt' ? 'pt-BR' : 'en-US';
+            recognition.start();
+        }
+
+        async function realizarTraducao() {
+            const texto = document.getElementById('inputText').value;
+            const par = document.getElementById('langPair').value.split('|');
+            const output = document.getElementById('outputText');
+            const btnVoz = document.getElementById('btnVoz');
+
+            if (!texto.trim()) return;
+
+            output.innerHTML = '<span class="loading">Traduzindo...</span>';
+            btnVoz.style.display = "none";
+
+            try {
+                const url = `https://translate.googleapis.com/translate_a/single?client=gtx&sl=${par[0]}&tl=${par[1]}&dt=t&q=${encodeURIComponent(texto)}`;
+                const response = await fetch(url);
+                const data = await response.json();
+                const traducaoFinal = data[0].map(item => item[0]).join('');
+                
+                output.innerText = traducaoFinal;
+                window.traducaoAtual = traducaoFinal;
+                window.idiomaVoz = par[1] === 'en' ? 'en-US' : 'pt-BR';
+                
+                btnVoz.style.display = "block";
+            } catch (error) {
+                output.innerText = "Erro ao traduzir. Tente novamente.";
+            }
+        }
+
+        function falar() {
+            if (!window.traducaoAtual) return;
+            const msg = new SpeechSynthesisUtterance(window.traducaoAtual);
+            msg.lang = window.idiomaVoz;
+            window.speechSynthesis.speak(msg);
+        }
+    </script>
+</body>
+</html>
