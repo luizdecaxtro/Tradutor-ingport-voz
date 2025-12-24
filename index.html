@@ -63,11 +63,10 @@
             <div id="outputText">A tradução aparecerá aqui...</div>
         </div>
         
-        <button id="btnVoz" class="btn-acao btn-ouvir" onclick="falar()">🔊 Ouvir Tradução</button>
+        <button id="btnVoz" class="btn-acao btn-ouvir" onclick="falar()">🔊 Ouvir Novamente</button>
     </div>
 
     <script>
-        // Configuração do Reconhecimento de Voz
         const Recognition = window.SpeechRecognition || window.webkitSpeechRecognition;
         let recognition = null;
 
@@ -89,16 +88,15 @@
             recognition.onresult = (event) => {
                 const transcript = event.results[0][0].transcript;
                 document.getElementById('inputText').value = transcript;
-                realizarTraducao(); // Traduz automaticamente após ouvir
+                realizarTraducao();
             };
 
             recognition.onerror = (event) => {
                 console.error("Erro no microfone: ", event.error);
-                alert("Erro ao acessar microfone. Verifique as permissões.");
+                alert("Erro ao acessar microfone.");
             };
         } else {
             document.getElementById('btnEscutar').style.display = "none";
-            console.warn("Navegador não suporta reconhecimento de voz.");
         }
 
         function ouvirUsuario() {
@@ -130,6 +128,10 @@
                 window.idiomaVoz = par[1] === 'en' ? 'en-US' : 'pt-BR';
                 
                 btnVoz.style.display = "block";
+                
+                // --- ALTERAÇÃO AQUI: Falar automaticamente após traduzir ---
+                falar(); 
+                
             } catch (error) {
                 output.innerText = "Erro ao traduzir. Tente novamente.";
             }
@@ -137,6 +139,9 @@
 
         function falar() {
             if (!window.traducaoAtual) return;
+            // Cancela falas em andamento para evitar sobreposição
+            window.speechSynthesis.cancel();
+            
             const msg = new SpeechSynthesisUtterance(window.traducaoAtual);
             msg.lang = window.idiomaVoz;
             window.speechSynthesis.speak(msg);
